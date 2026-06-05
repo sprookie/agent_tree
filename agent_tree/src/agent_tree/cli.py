@@ -5,10 +5,30 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+from pathlib import Path
 import sys
 
 
+def _load_env() -> None:
+    """Load .env from project root or current directory."""
+    for path in [
+        Path(__file__).resolve().parent.parent.parent / ".env",
+        Path.cwd() / ".env",
+        Path.cwd() / "agent_tree" / ".env",
+    ]:
+        if path.exists():
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.removeprefix("export ").strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = val
+
+
 def main() -> None:
+    _load_env()
     """Entry point for the agent-tree CLI."""
     parser = argparse.ArgumentParser(
         prog="agent-tree",

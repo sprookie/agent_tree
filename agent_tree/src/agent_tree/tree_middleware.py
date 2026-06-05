@@ -84,7 +84,6 @@ class TreeMiddleware(AgentMiddleware[Any, Any, Any]):
     def _build_task_tool(self) -> BaseTool:
         """Build a task tool that spawns a child agent at depth+1."""
         from deepagents import create_deep_agent
-        from deepagents.middleware.filesystem import FilesystemMiddleware
 
         next_depth = self._depth + 1
 
@@ -97,7 +96,6 @@ class TreeMiddleware(AgentMiddleware[Any, Any, Any]):
                 model=self._model,
                 tools=self._tools,
                 middleware=[
-                    FilesystemMiddleware(backend=self._backend, _permissions=[]),
                     TreeMiddleware(
                         depth=next_depth,
                         max_depth=self._max_depth,
@@ -106,6 +104,7 @@ class TreeMiddleware(AgentMiddleware[Any, Any, Any]):
                         backend=self._backend,
                     ),
                 ],
+                backend=self._backend,
                 name=f"tree-L{next_depth}-{subagent_type}",
             )
             child_state = {"messages": [HumanMessage(content=description)]}
@@ -128,14 +127,13 @@ class TreeMiddleware(AgentMiddleware[Any, Any, Any]):
             subagent_type: str = "general-purpose",
         ) -> str | Command:
             from deepagents import create_deep_agent
-            from deepagents.middleware.filesystem import FilesystemMiddleware
             child_graph = create_deep_agent(
                 model=self._model,
                 tools=self._tools,
                 middleware=[
-                    FilesystemMiddleware(backend=self._backend, _permissions=[]),
                     TreeMiddleware(depth=next_depth, max_depth=self._max_depth, model=self._model, tools=self._tools, backend=self._backend),
                 ],
+                backend=self._backend,
                 name=f"tree-L{next_depth}-{subagent_type}",
             )
             child_state = {"messages": [HumanMessage(content=description)]}

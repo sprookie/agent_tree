@@ -4,7 +4,25 @@
 import argparse
 import asyncio
 import os
+from pathlib import Path
 import sys
+
+
+def _load_env() -> None:
+    for path in [
+        Path(__file__).resolve().parent / ".env",
+        Path.cwd() / ".env",
+    ]:
+        if path.exists():
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.removeprefix("export ").strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = val
+
 
 DEMO_TREE = """@tree
 Analyze the concept of "agent tree" architecture for AI coding agents
@@ -24,6 +42,7 @@ Analyze the concept of "agent tree" architecture for AI coding agents
 
 
 def main() -> None:
+    _load_env()
     parser = argparse.ArgumentParser(description="Agent Tree Demo")
     parser.add_argument("--tui", action="store_true", help="Launch TUI mode")
     parser.add_argument("--headless", action="store_true", help="Run headless")

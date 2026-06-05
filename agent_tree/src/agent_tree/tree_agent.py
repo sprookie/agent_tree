@@ -13,7 +13,7 @@ from langchain_core.tools import BaseTool
 
 from deepagents import create_deep_agent
 from deepagents.backends.protocol import BackendProtocol, BackendFactory
-from deepagents.middleware.filesystem import FilesystemMiddleware, FilesystemPermission
+from deepagents.middleware.filesystem import FilesystemPermission
 
 from agent_tree.tree_middleware import TreeMiddleware
 
@@ -67,10 +67,6 @@ def create_tree_agent(
     resolved_tools = list(tools or [])
 
     middleware: list[Any] = [
-        FilesystemMiddleware(
-            backend=resolved_backend,
-            _permissions=permissions or [],
-        ),
         TreeMiddleware(
             depth=current_depth,
             max_depth=max_depth,
