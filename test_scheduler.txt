@@ -1,0 +1,14 @@
+@tree
+Deep-dive analysis of Linux kernel scheduler implementation
+  - Analyze core scheduler entry points in kernel/sched/core.c
+    - Find and explain the __schedule function: how it selects next task and performs context switch
+    - Find and explain pick_next_task: how it iterates scheduling classes to find the highest priority task
+    - Analyze the schedule() function: entry point, preemption checks, and call chain to __schedule
+  - Analyze CFS (Completely Fair Scheduler) in kernel/sched/fair.c
+    - Explain vruntime tracking: how update_curr and entity_tick maintain virtual runtime
+    - Explain task selection: how pick_next_entity_fair selects the leftmost node from the red-black tree
+    - Explain load tracking: how PELT (Per-Entity Load Tracking) calculates CPU load averages
+  - Analyze real-time and deadline scheduling
+    - Explain kernel/sched/rt.c: how FIFO and RR policies pick tasks and handle priority levels 0-99
+    - Explain kernel/sched/deadline.c: how EDF scheduling works with runtime/period/deadline parameters
+    - Compare the three scheduling classes: priority ordering, starvation prevention, and use cases
