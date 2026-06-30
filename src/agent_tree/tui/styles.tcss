@@ -1,0 +1,68 @@
+/* Agent Tree TUI styles */
+
+Screen {
+    layout: vertical;
+}
+
+#header {
+    height: 1;
+    background: $primary;
+    color: $text;
+    padding: 0 2;
+    text-style: bold;
+}
+
+#body {
+    layout: vertical;
+    height: 1fr;
+}
+
+#tree-panel {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+    overflow-y: auto;
+}
+
+#output-panel {
+    height: 1fr;
+    border: solid $success;
+    padding: 1;
+    overflow-y: auto;
+}
+
+#output-panel Label {
+    color: $text-muted;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#output-content {
+    color: $text;
+}
+
+#input-panel {
+    height: auto;
+    max-height: 16;
+    border: solid $accent;
+    padding: 0 1;
+}
+
+#input-panel Label {
+    color: $accent;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+#status-bar {
+    height: 1;
+    background: $surface;
+    color: $text-muted;
+    padding: 0 2;
+}
+
+/* Node status colours */
+.done { color: $success; }
+.running { color: $warning; }
+.error { color: $error; }
+.pending { color: $text-muted; }
