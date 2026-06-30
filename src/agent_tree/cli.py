@@ -5,10 +5,10 @@ import asyncio
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
-# Load .env from project root if present
-load_dotenv(Path(__file__).parent.parent.parent.parent / ".env", override=False)
+# Search parent directories for .env (works regardless of install location)
+load_dotenv(find_dotenv(usecwd=True), override=False)
 
 from .tree_executor import NodeEvent, TreeExecutor
 from .tree_parser import TreeParser
