@@ -1,68 +1,97 @@
-/* Agent Tree TUI styles */
+/* Agent Tree TUI */
 
 Screen {
     layout: vertical;
-}
-
-#header {
-    height: 1;
-    background: $primary;
-    color: $text;
-    padding: 0 2;
-    text-style: bold;
+    background: $background;
 }
 
 #body {
-    layout: vertical;
     height: 1fr;
+    layout: vertical;
+}
+
+/* ── Main area: tree (left) + output (right) ── */
+#main-panels {
+    height: 1fr;
+    layout: horizontal;
 }
 
 #tree-panel {
-    height: 1fr;
-    border: solid $primary;
-    padding: 1;
-    overflow-y: auto;
+    width: 40%;
+    min-width: 30;
+    layout: vertical;
+    border-right: solid $primary-darken-2;
 }
 
-#output-panel {
-    height: 1fr;
-    border: solid $success;
-    padding: 1;
-    overflow-y: auto;
-}
-
-#output-panel Label {
-    color: $text-muted;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#output-content {
+#tree-label {
+    height: 1;
+    background: $primary-darken-3;
     color: $text;
-}
-
-#input-panel {
-    height: auto;
-    max-height: 16;
-    border: solid $accent;
+    text-style: bold;
     padding: 0 1;
 }
 
-#input-panel Label {
-    color: $accent;
-    text-style: bold;
-    padding: 0 0 1 0;
+TreeView {
+    height: 1fr;
+    padding: 0 1;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
-#status-bar {
+#output-panel {
+    width: 1fr;
+    layout: vertical;
+}
+
+#output-label {
     height: 1;
-    background: $surface;
-    color: $text-muted;
-    padding: 0 2;
+    background: $success-darken-3;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
 }
 
-/* Node status colours */
-.done { color: $success; }
-.running { color: $warning; }
-.error { color: $error; }
-.pending { color: $text-muted; }
+#output-scroll {
+    height: 1fr;
+    padding: 0 1;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+#output-content {
+    height: auto;
+    padding: 1 0;
+}
+
+/* ── Input panel ── */
+#input-panel {
+    height: auto;
+    max-height: 18;
+    border-top: solid $accent-darken-2;
+}
+
+#input-label {
+    height: 1;
+    background: $accent-darken-3;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+}
+
+TaskInput {
+    height: auto;
+    min-height: 6;
+    max-height: 15;
+}
+
+TaskInput TextArea {
+    height: auto;
+    min-height: 5;
+    max-height: 13;
+    border: none;
+    background: $surface;
+}
+
+TaskInput TextArea:focus {
+    border: none;
+}

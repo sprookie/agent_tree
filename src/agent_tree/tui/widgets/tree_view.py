@@ -3,26 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
-
 NodeStatus = Literal["pending", "running", "done", "error"]
 
 _ICON = {
-    "pending": "○",
-    "running": "◷",
-    "done": "✓",
-    "error": "✗",
+    "pending": ("○", "dim"),
+    "running": ("◷", "yellow"),
+    "done": ("✓", "green"),
+    "error": ("✗", "red"),
 }
 
-_STATUS_CLASS = {
-    "pending": "pending",
-    "running": "running",
-    "done": "done",
-    "error": "error",
-}
+_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
 @dataclass
@@ -37,29 +32,57 @@ class NodeState:
 
 
 class TreeView(Widget):
-    """Renders a live tree of agent node statuses."""
+    """Live tree progress widget with spinner animation for running nodes."""
 
     DEFAULT_CSS = """
     TreeView {
-        height: auto;
-        min-height: 3;
-        padding: 1;
+        height: 1fr;
+        padding: 0 1;
+        overflow-y: auto;
     }
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._root: NodeState | None = None
-        self._nodes: dict[tuple[int, ...], NodeState] = {}
+        self._node_states: dict[tuple[int, ...], NodeState] = {}
+        self._tick: int = 0
 
     def compose(self) -> ComposeResult:
-        yield Static("(waiting for task…)", id="tree-content")
+        yield Static(Text("(waiting for task…)", style="dim"), id="tree-content")
+
+    def on_mount(self) -> None:
+        self.set_interval(0.12, self._tick_spinner)
+
+    def _tick_spinner(self) -> None:
+        if self._has_running():
+            self._tick = (self._tick + 1) % len(_SPINNER_FRAMES)
+            self._refresh_display()
+
+    def _has_running(self) -> bool:
+        return any(n.status == "running" for n in self._node_states.values())
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def reset(self) -> None:
+        self._root = None
+        self._node_states = {}
+        try:
+            self.query_one("#tree-content", Static).update(
+                Text("(waiting for task…)", style="dim")
+            )
+        except Exception:
+            pass
 
     def init_tree(self, root_description: str) -> None:
+        self._root = None
+        self._node_states = {}
         root = NodeState(node_path=(), description=root_description, depth=0)
         self._root = root
-        self._nodes[()] = root
-        self._refresh()
+        self._node_states[()] = root
+        self._refresh_display()
 
     def upsert_node(
         self,
@@ -69,64 +92,76 @@ class TreeView(Widget):
         elapsed: float | None = None,
         error: str | None = None,
     ) -> None:
-        if node_path not in self._nodes:
+        if node_path not in self._node_states:
             depth = len(node_path)
-            node = NodeState(
-                node_path=node_path,
-                description=description,
-                depth=depth,
-            )
-            self._nodes[node_path] = node
-            # Attach to parent
+            node = NodeState(node_path=node_path, description=description, depth=depth)
+            self._node_states[node_path] = node
             parent_path = node_path[:-1]
-            if parent_path in self._nodes:
-                self._nodes[parent_path].children.append(node)
-            elif parent_path == () and self._root is None:
-                self._root = node
+            if parent_path in self._node_states:
+                parent = self._node_states[parent_path]
+                if node not in parent.children:
+                    parent.children.append(node)
 
-        n = self._nodes[node_path]
+        n = self._node_states[node_path]
         n.status = status
         n.description = description
         n.elapsed = elapsed
         n.error = error
-        self._refresh()
+        self._refresh_display()
 
-    def _refresh(self) -> None:
+    def stats(self) -> tuple[int, int, int]:
+        """Return (total, done, error) node counts."""
+        nodes = list(self._node_states.values())
+        return len(nodes), sum(1 for n in nodes if n.status == "done"), sum(1 for n in nodes if n.status == "error")
+
+    # ------------------------------------------------------------------
+    # Rendering
+    # ------------------------------------------------------------------
+
+    def _refresh_display(self) -> None:
         if self._root is None:
             return
-        lines = self._render_node(self._root, prefix="", is_last=True)
-        content = "\n".join(lines)
+        rich_text = Text()
+        self._render_node(self._root, rich_text, prefix="", is_last=True)
         try:
-            static = self.query_one("#tree-content", Static)
-            static.update(content)
+            self.query_one("#tree-content", Static).update(rich_text)
         except Exception:
             pass
 
-    def _render_node(self, node: NodeState, prefix: str, is_last: bool) -> list[str]:
-        icon = _ICON[node.status]
+    def _render_node(
+        self, node: NodeState, out: Text, prefix: str, is_last: bool
+    ) -> None:
+        icon_char, icon_style = _ICON[node.status]
+        if node.status == "running":
+            icon_char = _SPINNER_FRAMES[self._tick]
+
         connector = "└ " if is_last else "├ "
         label = f"L{node.depth}" if node.depth > 0 else "root"
-        desc = node.description[:55] + "…" if len(node.description) > 55 else node.description
+        desc = node.description[:60] + "…" if len(node.description) > 60 else node.description
 
-        timing = ""
         if node.elapsed is not None:
             timing = f" [{node.elapsed:.1f}s]"
         elif node.status == "running":
-            timing = " [running]"
-
-        if node.status == "error" and node.error:
-            timing += f" ✗ {node.error[:30]}"
+            timing = " [running…]"
+        else:
+            timing = ""
 
         if node.depth == 0:
-            line = f"{icon} {desc}{timing}"
+            out.append(f"{icon_char} ", style=icon_style)
+            out.append(desc, style="bold")
+            out.append(timing, style="dim")
         else:
-            line = f"{prefix}{connector}{icon} {label} · {desc}{timing}"
+            out.append(prefix + connector, style="dim")
+            out.append(f"{icon_char} ", style=icon_style)
+            out.append(f"{label} · ", style="dim")
+            out.append(desc)
+            out.append(timing, style="dim")
 
-        lines = [line]
+        if node.status == "error" and node.error:
+            out.append(f"  ← {node.error[:40]}", style="red")
+
+        out.append("\n")
 
         child_prefix = prefix + ("  " if is_last else "│ ")
         for i, child in enumerate(node.children):
-            child_is_last = i == len(node.children) - 1
-            lines.extend(self._render_node(child, child_prefix, child_is_last))
-
-        return lines
+            self._render_node(child, out, child_prefix, i == len(node.children) - 1)
