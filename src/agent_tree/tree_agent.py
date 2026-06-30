@@ -53,6 +53,7 @@ _ROOT_SYSTEM_PROMPT = (
 
 def _build_layer(
     model: str | BaseChatModel,
+    leaf_model: str | BaseChatModel,
     tools: list[BaseTool],
     backend: BackendProtocol,
     depth: int,
@@ -61,18 +62,18 @@ def _build_layer(
 ) -> CompiledStateGraph:
     """Recursively build one layer of the agent tree.
 
-    depth >= max_depth  →  leaf agent (no task tool)
-    depth < max_depth   →  non-leaf agent (has task tool pointing to depth+1 agent)
+    depth >= max_depth  →  leaf agent (uses leaf_model, no task tool)
+    depth < max_depth   →  non-leaf agent (uses model, has task tool pointing to depth+1)
     """
     if depth >= max_depth:
         return create_deep_agent(
-            model,
+            leaf_model,
             tools=tools,
             backend=backend,
             name=f"L{depth}-leaf",
         )
 
-    child_graph = _build_layer(model, tools, backend, depth + 1, max_depth, system_prompt=None)
+    child_graph = _build_layer(model, leaf_model, tools, backend, depth + 1, max_depth, system_prompt=None)
 
     return create_deep_agent(
         model,
@@ -90,9 +91,13 @@ def _build_layer(
     )
 
 
+_DEFAULT_LEAF_MODEL = "openai:deepseek-v4-flash"
+
+
 def create_tree_agent(
     model: str | BaseChatModel,
     *,
+    leaf_model: str | BaseChatModel | None = None,
     tools: list[BaseTool] | None = None,
     backend: BackendProtocol | None = None,
     max_depth: int = 3,
@@ -101,8 +106,12 @@ def create_tree_agent(
     """Create a recursive tree agent.
 
     Args:
-        model: Model string (e.g. ``"anthropic:claude-sonnet-4-6"``) or
-            ``BaseChatModel`` instance.
+        model: Root/orchestrator model — used for non-leaf agents and synthesis.
+            E.g. ``"openai:deepseek-v4-pro"`` or a ``BaseChatModel`` instance.
+        leaf_model: Leaf agent model — used for actual task execution at the
+            deepest layer.  Defaults to ``"openai:deepseek-v4-flash"`` (faster
+            and cheaper).  Pass the same value as ``model`` to disable
+            per-layer switching.
         tools: Domain tools available at every layer.
         backend: File-system backend.  Defaults to ``StateBackend()``.
         max_depth: Maximum number of recursive layers.  Agents at
@@ -117,4 +126,5 @@ def create_tree_agent(
     if system_prompt is None:
         system_prompt = _ROOT_SYSTEM_PROMPT
     resolved = _resolve_model(model)
-    return _build_layer(resolved, tools or [], backend, depth=0, max_depth=max_depth, system_prompt=system_prompt)
+    resolved_leaf = _resolve_model(leaf_model if leaf_model is not None else _DEFAULT_LEAF_MODEL)
+    return _build_layer(resolved, resolved_leaf, tools or [], backend, depth=0, max_depth=max_depth, system_prompt=system_prompt)

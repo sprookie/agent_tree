@@ -31,11 +31,13 @@ class TreeApp(App):
     def __init__(
         self,
         model: str | None = None,
+        leaf_model: str | None = None,
         max_depth: int | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self._model = model or os.environ.get("AGENT_TREE_MODEL", "openai:deepseek-v4-pro")
+        self._leaf_model = leaf_model or os.environ.get("AGENT_TREE_LEAF_MODEL", "openai:deepseek-v4-flash")
         self._max_depth = max_depth or int(os.environ.get("AGENT_TREE_MAX_DEPTH", "3"))
         self._executor_task: asyncio.Task | None = None
         self._adapter_task: asyncio.Task | None = None
@@ -65,7 +67,7 @@ class TreeApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.sub_title = f"{self._model}  depth={self._max_depth}"
+        self.sub_title = f"{self._model} / leaf:{self._leaf_model}  depth={self._max_depth}"
         tree_view = self.query_one(TreeView)
         self._adapter = TreeUIAdapter(tree_view, self._update_status)
         self.query_one(TaskInput).focus()
@@ -117,6 +119,7 @@ class TreeApp(App):
 
         executor = TreeExecutor(
             self._model,
+            leaf_model=self._leaf_model,
             max_depth=self._max_depth,
             event_queue=self._adapter.queue,
         )
@@ -136,6 +139,6 @@ class TreeApp(App):
 
     def _update_status(self, msg: str) -> None:
         try:
-            self.sub_title = f"{self._model}  depth={self._max_depth}  [{msg}]"
+            self.sub_title = f"{self._model} / leaf:{self._leaf_model}  depth={self._max_depth}  [{msg}]"
         except Exception:
             pass

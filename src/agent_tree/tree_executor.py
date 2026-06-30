@@ -10,7 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool
 
-from .tree_agent import _resolve_model, create_tree_agent
+from .tree_agent import _DEFAULT_LEAF_MODEL, _resolve_model, create_tree_agent
 from .tree_node import TreeNode
 
 
@@ -35,12 +35,14 @@ class TreeExecutor:
         self,
         model: str | BaseChatModel,
         *,
+        leaf_model: str | BaseChatModel | None = None,
         tools: list[BaseTool] | None = None,
         backend: BackendProtocol | None = None,
         max_depth: int = 3,
         event_queue: asyncio.Queue[NodeEvent] | None = None,
     ) -> None:
         self.model = _resolve_model(model)
+        self.leaf_model = _resolve_model(leaf_model if leaf_model is not None else _DEFAULT_LEAF_MODEL)
         self.tools = tools or []
         self.backend = backend
         self.max_depth = max_depth
@@ -96,8 +98,10 @@ class TreeExecutor:
             raise
 
     async def _run_leaf(self, node: TreeNode, remaining_depth: int) -> str:
+        # Leaf nodes use leaf_model for actual task execution
         agent = create_tree_agent(
-            self.model,
+            self.leaf_model,
+            leaf_model=self.leaf_model,
             tools=self.tools,
             backend=self.backend,
             max_depth=remaining_depth,
@@ -114,12 +118,13 @@ class TreeExecutor:
             f"Results from sub-tasks:\n{numbered}\n\n"
             "Write a concise, comprehensive summary that integrates all findings."
         )
-        # Reuse a single-shot leaf agent for summarisation
+        # Synthesis uses root model (smarter, better at integration)
         agent = create_tree_agent(
             self.model,
+            leaf_model=self.leaf_model,
             tools=[],
             backend=self.backend,
-            max_depth=1,  # leaf, no recursion
+            max_depth=1,
         )
         state = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
         return self._extract_text(state)

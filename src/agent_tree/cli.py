@@ -17,6 +17,7 @@ from .tui.app import TreeApp
 
 def main() -> None:
     _default_model = os.environ.get("AGENT_TREE_MODEL", "openai:deepseek-v4-pro")
+    _default_leaf = os.environ.get("AGENT_TREE_LEAF_MODEL", "openai:deepseek-v4-flash")
     _default_depth = int(os.environ.get("AGENT_TREE_MAX_DEPTH", "3"))
 
     parser = argparse.ArgumentParser(
@@ -25,17 +26,24 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:
-  agent-tree                                  # open TUI
-  agent-tree "analyse Linux scheduler"        # CLI one-shot
-  agent-tree --max-depth 2 "summarise XYZ"   # limit depth
-  agent-tree --tui "any task"                 # force TUI
+  agent-tree                                          # open TUI
+  agent-tree "analyse Linux scheduler"               # CLI one-shot
+  agent-tree --max-depth 2 "summarise XYZ"           # limit depth
+  agent-tree --leaf-model openai:deepseek-v4-pro "…" # same model for all layers
+  agent-tree --tui "any task"                        # force TUI
 """,
     )
     parser.add_argument("task", nargs="?", help="Task (omit to open TUI)")
     parser.add_argument(
         "--model",
         default=_default_model,
-        help=f"Model identifier (default: {_default_model})",
+        help=f"Root/orchestrator model (default: {_default_model})",
+    )
+    parser.add_argument(
+        "--leaf-model",
+        default=_default_leaf,
+        dest="leaf_model",
+        help=f"Leaf agent model (default: {_default_leaf})",
     )
     parser.add_argument(
         "--max-depth",
@@ -48,20 +56,20 @@ examples:
     args = parser.parse_args()
 
     if args.task and not args.tui:
-        asyncio.run(_run_cli(args.task, args.model, args.max_depth))
+        asyncio.run(_run_cli(args.task, args.model, args.leaf_model, args.max_depth))
     else:
-        TreeApp(model=args.model, max_depth=args.max_depth).run()
+        TreeApp(model=args.model, leaf_model=args.leaf_model, max_depth=args.max_depth).run()
 
 
-async def _run_cli(task: str, model: str, max_depth: int) -> None:
-    print(f"[agent-tree] model={model}  max_depth={max_depth}")
+async def _run_cli(task: str, model: str, leaf_model: str, max_depth: int) -> None:
+    print(f"[agent-tree] model={model}  leaf={leaf_model}  max_depth={max_depth}")
     print(f"[agent-tree] task: {task[:100]}")
     print()
 
     tree = TreeParser().parse(task)
 
     queue: asyncio.Queue[NodeEvent] = asyncio.Queue()
-    executor = TreeExecutor(model, max_depth=max_depth, event_queue=queue)
+    executor = TreeExecutor(model, leaf_model=leaf_model, max_depth=max_depth, event_queue=queue)
 
     # Drain events concurrently while executor runs
     async def _drain() -> None:
